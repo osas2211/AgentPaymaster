@@ -19,7 +19,7 @@ export default function AppLayout({
       <InAppLayout>
         <Header />
         <Sidebar />
-        <div className="mt-[80px] ml-[100px] p-4 text-white min-h-screen">{children}</div>
+        <div className="mt-[80px] ml-[100px] p-4 md:p-8 text-white min-h-screen">{children}</div>
       </InAppLayout>
     </div>
   )

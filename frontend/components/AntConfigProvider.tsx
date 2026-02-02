@@ -19,7 +19,7 @@ export const AntConfigProvider = ({
           },
           algorithm: theme.darkAlgorithm,
           components: {
-            Button: { primaryColor: "#0b090a" },
+            Button: { primaryColor: "#0b090a", borderRadius: 0, colorBgContainer: "transparent" },
             Input: { colorBgContainer: "transparent" },
             DatePicker: { colorBgContainer: "transparent" },
           },
