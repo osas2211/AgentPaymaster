@@ -14,7 +14,7 @@ export const AntConfigProvider = ({
         theme={{
           token: {
             colorPrimary: "#c3ff49",
-            fontFamily: "var(--font-sequel-sans)",
+            fontFamily: "var(--font-ibm-plex-sans)",
             colorText: "#fdfdff",
           },
           algorithm: theme.darkAlgorithm,

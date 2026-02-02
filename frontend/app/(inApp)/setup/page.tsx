@@ -1,11 +1,7 @@
 "use client"
-import { Button } from 'antd'
-import { ArrowUpRight } from 'lucide-react'
 import React from 'react'
-import gsap from "gsap"
-import ScrambleTextPlugin from "gsap/ScrambleTextPlugin"
+import { CreateVault } from '@/components/vault/CreateVault'
 
-gsap.registerPlugin(ScrambleTextPlugin)
 
 
 const steps = [
@@ -27,31 +23,10 @@ const SetupPage = () => {
           <p className='uppercase text-sm'>wallet connection</p>
           <div className="text-sm text-grey-400 font-medium mt-2">Not connected</div>
         </div>
-        <Button
-          onMouseEnter={() => {
-            gsap.fromTo(
-              `.connect-wallet-text`,
-              { scrambleText: "@#$%^** **$%^&" },
-              { scrambleText: "Connect wallet", duration: 0.5 }
-            )
-
-            gsap.to(".connect-wallet-arrow", {
-              rotate: "45deg",
-              duration: 0.5
-
-            })
-          }}
-          onMouseLeave={() => {
-            gsap.to(".connect-wallet-arrow", {
-              rotate: "0deg",
-            })
-          }}
-          icon={<ArrowUpRight className='connect-wallet-arrow' />} iconPlacement="end" className='!h-[45px] w-[200px] uppercase text-xs! font-medium! border-grey-700! hover:border-primary!'>
-          <span className='connect-wallet-text'>Connect wallet</span>
-        </Button>
+        <CreateVault />
       </div>
 
-      <div className="max-w-[900px] p-4 md:p-7 border-primary/50 border-[1px] md:mt-12 bg-primary/5">
+      <div className="max-w-[900px] p-4 md:p-7 border-primary/50 border-[1px] md:mt-12 bg-primary/5 relative">
         <small className='text-xs text-primary uppercase font-medium'>What happens next?</small>
         <div className="mt-4">
           <div className="space-y-3">
@@ -67,6 +42,10 @@ const SetupPage = () => {
               execute operations with 99.9% gas savings.</p>
           </div>
         </div>
+
+        <div className='absolute bottom-0 right-0 w-[50px] h-[2px] bg-primary' />
+        <div className='absolute bottom-0 right-0 w-[2px] h-[50px] bg-primary' />
+
       </div>
     </div>
   )
