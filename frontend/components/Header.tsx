@@ -22,9 +22,8 @@ export const Header = () => {
               <Link
                 key={link.route}
                 href={link.route}
-                className={`hover:text-grey-100 uppercase text-xs tracking-widest ${
-                  pathname === link.route ? "text-primary" : "text-grey-400"
-                }`}
+                className={`hover:text-grey-100 uppercase text-xs tracking-widest font-mono ${pathname === link.route ? "text-primary" : "text-grey-400"
+                  }`}
               >
                 {link.pathname}
               </Link>

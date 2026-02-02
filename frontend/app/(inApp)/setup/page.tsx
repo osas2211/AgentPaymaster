@@ -19,13 +19,13 @@ const SetupPage = () => {
       <div className="">
         <small className='text-xs text-primary'>PHASE 1 / SETUP</small>
         <h3 className="text-7xl uppercase my-4">setup secure vault</h3>
-        <p className='max-w-[700px] text-grey-400 mt-7 mb-10'>Deposit USDC to enable agent operations. Agents spend from this pool
+        <p className='max-w-[700px] text-grey-400 mt-6 mb-10 font-mono text-sm'>Deposit USDC to enable agent operations. Agents spend from this pool
           within your policy limits. You can withdraw available funds anytime.</p>
       </div>
-      <div className='max-w-[900px] p-4 md:p-6 border-grey-800 border-[1px] flex items-center justify-between gap-4 flex-wrap'>
+      <div className='max-w-[900px] p-4 md:p-6 md:pb-10 border-grey-800 border-[1px] flex items-center justify-between gap-4 flex-wrap'>
         <div className="">
-          <p className='uppercase'>wallet connection</p>
-          <div className="text-sm text-grey-300 font-medium mt-2">Not connected</div>
+          <p className='uppercase text-sm'>wallet connection</p>
+          <div className="text-sm text-grey-400 font-medium mt-2">Not connected</div>
         </div>
         <Button
           onMouseEnter={() => {
@@ -57,13 +57,13 @@ const SetupPage = () => {
           <div className="space-y-3">
             {
               steps.map((step, index) => {
-                return <div className="flex items-center gap-4" key={index}>
+                return <div className="flex items-center gap-4 font-mono text-sm" key={index}>
                   <p className='text-primary font-medium'>0{index + 1}</p>
                   <p className='text-grey-100'>{step}</p>
                 </div>
               })
             }
-            <p className="text-sm text-grey-300 py-2">You'll sign two transactions (approve + deposit). Your agents can now
+            <p className="text-xs text-grey-300 py-2 font-mono">You'll sign two transactions (approve + deposit). Your agents can now
               execute operations with 99.9% gas savings.</p>
           </div>
         </div>
