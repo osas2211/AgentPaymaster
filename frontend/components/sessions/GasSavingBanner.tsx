@@ -4,7 +4,7 @@ import React from "react"
 export const GasSavingBanner = () => {
   return (
     <div>
-      <div className="max-w-full p-4 md:p-7 border-primary/30 border-[1px] bg-primary/2 relative">
+      <div className="max-w-full p-4 md:p-7 border-primary/10 border-[1px] bg-primary/1 relative">
         <div className="grid grid-cols-1 md:grid-cols-4 md:gap-7 gap-4">
           <div className="space-y-3">
             <p className="uppercase text-sm text-grey-300 font-medium">
