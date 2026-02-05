@@ -5,7 +5,6 @@ import { useWallet } from './useWallet';
 import { POLICY_VAULT_ADDRESS } from '@/lib/contracts/addresses';
 import { PolicyVaultABI } from '@/lib/contracts/abi';
 import { arcTestnet } from '@/lib/config/wagmi';
-import { QUERY_KEYS } from '@/lib/utils/constants';
 import type { VaultBalance } from '@/types';
 
 // ============================================
@@ -33,7 +32,6 @@ export function useVaultBalance() {
     chainId: arcTestnet.id,
     query: {
       enabled: isReady && !!address,
-      queryKey: address ? QUERY_KEYS.vaultBalance(address) : ['vaultBalance'],
       staleTime: 30_000, // 30 seconds
       refetchInterval: 60_000, // 1 minute
     },

@@ -78,10 +78,22 @@ export function YellowProvider({ children }: YellowProviderProps) {
         onMessage: (message) => {
           // Handle incoming messages from Yellow Network
           if (message.type === 'operation') {
-            addOperation(message.sessionId, message.operation);
+            // Convert message operation to full Operation type
+            const operation = {
+              ...message.operation,
+              sessionId: message.sessionId,
+              amount: BigInt(message.operation.amount),
+              estimatedGas: BigInt(message.operation.estimatedGas),
+              actualGas: BigInt(0), // Off-chain operations have no actual gas
+            };
+            addOperation(message.sessionId, operation);
             updateGasStats(message.gasSaved);
           } else if (message.type === 'session_update') {
-            updateSession(message.sessionId, message.data);
+            updateSession(message.sessionId, {
+              balance: BigInt(message.data.balance),
+              state: message.data.state,
+              nonce: message.data.nonce,
+            });
           }
         },
       });

@@ -6,8 +6,7 @@ import { POLICY_VAULT_ADDRESS } from '@/lib/contracts/addresses';
 import { PolicyVaultABI } from '@/lib/contracts/abi';
 import { arcTestnet } from '@/lib/config/wagmi';
 import { toPolicy, toAgent } from '@/lib/contracts/types';
-import { QUERY_KEYS } from '@/lib/utils/constants';
-import type { Agent, Policy } from '@/types';
+import type { Agent } from '@/types';
 import type { Address } from 'viem';
 
 // ============================================
@@ -34,7 +33,6 @@ export function useAgents() {
     chainId: arcTestnet.id,
     query: {
       enabled: isReady && !!address,
-      queryKey: address ? QUERY_KEYS.agents(address) : ['agents'],
       staleTime: 30_000,
     },
   });
