@@ -1,26 +1,29 @@
-'use client';
+"use client"
 
-import { useRef, useEffect } from 'react';
-import { ConnectKitButton } from 'connectkit';
-import { useWallet } from '@/lib/hooks/useWallet';
-import { useChain } from '@/lib/hooks/useChain';
-import { formatAddress } from '@/lib/utils/format';
-import { Wallet, ChevronDown, AlertCircle } from 'lucide-react';
-import gsap from 'gsap';
+import { useRef, useEffect } from "react"
+import { ConnectKitButton } from "connectkit"
+import { useWallet } from "@/lib/hooks/useWallet"
+import { useChain } from "@/lib/hooks/useChain"
+import { formatAddress } from "@/lib/utils/format"
+import { Wallet, ChevronDown, AlertCircle } from "lucide-react"
+import gsap from "gsap"
 
 // ============================================
 // ConnectWallet Component
 // ============================================
 
 interface ConnectWalletProps {
-  className?: string;
-  showBalance?: boolean;
+  className?: string
+  showBalance?: boolean
 }
 
-export function ConnectWallet({ className = '', showBalance = true }: ConnectWalletProps) {
-  const { isWrongChain, usdcBalanceFormatted } = useWallet();
-  const { switchToArc, isSwitching } = useChain();
-  const buttonRef = useRef<HTMLButtonElement>(null);
+export function ConnectWallet({
+  className = "",
+  showBalance = true,
+}: ConnectWalletProps) {
+  const { isWrongChain, usdcBalanceFormatted } = useWallet()
+  const { switchToArc, isSwitching } = useChain()
+  const buttonRef = useRef<HTMLButtonElement>(null)
 
   // GSAP animation on mount
   useEffect(() => {
@@ -28,10 +31,10 @@ export function ConnectWallet({ className = '', showBalance = true }: ConnectWal
       gsap.fromTo(
         buttonRef.current,
         { opacity: 0, y: -10 },
-        { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }
-      );
+        { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" },
+      )
     }
-  }, []);
+  }, [])
 
   // Wrong chain state - show switch button
   if (isWrongChain) {
@@ -51,10 +54,10 @@ export function ConnectWallet({ className = '', showBalance = true }: ConnectWal
       >
         <AlertCircle className="w-4 h-4" />
         <span className="text-sm font-medium">
-          {isSwitching ? 'Switching...' : 'Switch to Arc'}
+          {isSwitching ? "Switching..." : "Switch to Arc"}
         </span>
       </button>
-    );
+    )
   }
 
   return (
@@ -95,13 +98,13 @@ export function ConnectWallet({ className = '', showBalance = true }: ConnectWal
                 {/* Disconnected state */}
                 <Wallet className="w-4 h-4 text-primary" />
                 <span className="text-sm font-medium text-white">
-                  {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                  {isConnecting ? "Connecting..." : "Connect Wallet"}
                 </span>
               </>
             )}
           </button>
-        );
+        )
       }}
     </ConnectKitButton.Custom>
-  );
+  )
 }

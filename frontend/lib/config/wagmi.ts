@@ -1,22 +1,22 @@
-import { http, createConfig } from 'wagmi';
-import { defineChain } from 'viem';
-import { getDefaultConfig } from 'connectkit';
+import { http, createConfig } from 'wagmi'
+import { defineChain } from 'viem'
+import { getDefaultConfig } from 'connectkit'
 
 // ============================================
 // Arc Testnet Chain Definition
 // ============================================
 
 export const arcTestnet = defineChain({
-  id: 1397,
+  id: 5042002,
   name: 'Arc Testnet',
   nativeCurrency: {
     decimals: 18,
-    name: 'Arc ETH',
-    symbol: 'ETH',
+    name: 'Arc',
+    symbol: 'USD',
   },
   rpcUrls: {
     default: {
-      http: [process.env.NEXT_PUBLIC_ARC_TESTNET_RPC || 'https://testnet-rpc.arc.io'],
+      http: [process.env.NEXT_PUBLIC_ARC_TESTNET_RPC || 'https://rpc.testnet.arc.network'],
     },
   },
   blockExplorers: {
@@ -26,7 +26,7 @@ export const arcTestnet = defineChain({
     },
   },
   testnet: true,
-});
+})
 
 // ============================================
 // Wagmi Config with ConnectKit
@@ -49,7 +49,7 @@ export const wagmiConfig = createConfig(
     appUrl: typeof window !== 'undefined' ? window.location.origin : 'https://agentpaymaster.xyz',
     appIcon: '/icon.png',
   })
-);
+)
 
 // ============================================
 // Type Exports
@@ -57,6 +57,6 @@ export const wagmiConfig = createConfig(
 
 declare module 'wagmi' {
   interface Register {
-    config: typeof wagmiConfig;
+    config: typeof wagmiConfig
   }
 }
