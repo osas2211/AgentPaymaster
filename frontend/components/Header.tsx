@@ -2,6 +2,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import React from "react"
+import { ConnectWallet } from "./wallet/ConnectWallet"
 
 const links = [
   { pathname: "setup", route: "/setup" },
@@ -22,13 +23,14 @@ export const Header = () => {
               <Link
                 key={link.route}
                 href={link.route}
-                className={`hover:text-grey-100 uppercase text-xs tracking-widest font-mono ${pathname === link.route ? "text-primary" : "text-grey-400"
-                  }`}
+                className={`hover:text-grey-100 uppercase text-xs tracking-widest font-mono ${
+                  pathname === link.route ? "text-primary" : "text-grey-400"
+                }`}
               >
                 {link.pathname}
               </Link>
             ))}
-            {/* <ConnectWallet /> */}
+            <ConnectWallet />
           </div>
         </div>
       </div>

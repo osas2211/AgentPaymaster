@@ -10,6 +10,7 @@ export { useChain } from './useChain';
 export { useVaultBalance } from './useVaultBalance';
 export { useVaultDeposit } from './useVaultDeposit';
 export { useVaultWithdraw } from './useVaultWithdraw';
+export { useCreateVault } from './useCreateVault';
 
 // Agent Hooks
 export { useAgents, useAgentInfo, useIsAgentAuthorized } from './useAgents';
