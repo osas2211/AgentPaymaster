@@ -68,10 +68,18 @@ export function YellowProvider({ children }: YellowProviderProps) {
       setConnectionStatus('connecting');
       setError(null);
 
+      let hasErrored = false;
+
       const yellowClient = new YellowClient({
         onOpen: () => setConnectionStatus('connected'),
-        onClose: () => setConnectionStatus('disconnected'),
+        onClose: () => {
+          // Don't overwrite error status when close follows an error
+          if (!hasErrored) {
+            setConnectionStatus('disconnected');
+          }
+        },
         onError: (err) => {
+          hasErrored = true;
           setError(err);
           setConnectionStatus('error');
         },

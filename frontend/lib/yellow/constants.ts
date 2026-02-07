@@ -6,7 +6,7 @@
  * Yellow Network ClearNode WebSocket URL
  */
 export const YELLOW_WS_URL =
-  process.env.NEXT_PUBLIC_YELLOW_WS_URL || 'wss://clearnode.yellow.com/ws';
+  process.env.NEXT_PUBLIC_YELLOW_WS_URL || 'wss://clearnet.yellow.com/ws'
 
 /**
  * Connection retry configuration
@@ -24,7 +24,7 @@ export const CONNECTION_CONFIG = {
   pingInterval: 30000,
   /** Connection timeout (ms) */
   connectionTimeout: 10000,
-} as const;
+} as const
 
 /**
  * Message types for Yellow Network protocol
@@ -46,4 +46,4 @@ export const MESSAGE_TYPES = {
   SESSION_UPDATE: 'session_update',
   ERROR: 'error',
   PONG: 'pong',
-} as const;
+} as const

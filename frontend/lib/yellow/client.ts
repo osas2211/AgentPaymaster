@@ -36,6 +36,8 @@ export class YellowClient {
     this.address = address;
 
     return new Promise((resolve, reject) => {
+      let connected = false;
+
       const timeout = setTimeout(() => {
         reject(new Error('Connection timeout'));
       }, CONNECTION_CONFIG.connectionTimeout);
@@ -45,6 +47,7 @@ export class YellowClient {
 
         this.ws.onopen = () => {
           clearTimeout(timeout);
+          connected = true;
           this.reconnectAttempts = 0;
           this.startPingInterval();
 
@@ -61,7 +64,10 @@ export class YellowClient {
         this.ws.onclose = () => {
           this.stopPingInterval();
           this.handlers.onClose?.();
-          this.attemptReconnect();
+          // Only attempt reconnect if we previously had a successful connection
+          if (connected) {
+            this.attemptReconnect();
+          }
         };
 
         this.ws.onerror = (event) => {
