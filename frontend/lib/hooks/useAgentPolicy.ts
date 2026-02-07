@@ -5,8 +5,8 @@ import { useWallet } from './useWallet';
 import { POLICY_VAULT_ADDRESS } from '@/lib/contracts/addresses';
 import { PolicyVaultABI } from '@/lib/contracts/abi';
 import { arcTestnet } from '@/lib/config/wagmi';
-import { toPolicy, fromOperationTypes } from '@/lib/contracts/types';
-import type { Policy, OperationType } from '@/types';
+import { toPolicy } from '@/lib/contracts/types';
+import type { Policy } from '@/types';
 import type { Address } from 'viem';
 
 // ============================================
@@ -17,7 +17,7 @@ import type { Address } from 'viem';
  * Hook to get policy for a specific agent
  */
 export function useAgentPolicy(agentAddress: Address | undefined) {
-  const { address, isReady } = useWallet();
+  const { isReady } = useWallet();
 
   const {
     data,
@@ -28,29 +28,33 @@ export function useAgentPolicy(agentAddress: Address | undefined) {
     address: POLICY_VAULT_ADDRESS,
     abi: PolicyVaultABI,
     functionName: 'getAgentPolicy',
-    args: address && agentAddress ? [address, agentAddress] : undefined,
+    args: agentAddress ? [agentAddress] : undefined,
     chainId: arcTestnet.id,
     query: {
-      enabled: isReady && !!address && !!agentAddress,
+      enabled: isReady && !!agentAddress,
       staleTime: 30_000,
     },
   });
 
-  const policy: Policy | undefined = data
-    ? toPolicy({
-        dailyLimit: data[0],
-        maxPerTransaction: data[1],
-        allowedOperations: data[2],
-        expiresAt: data[3],
-      })
+  const rawPolicy = data as {
+    dailyLimit: bigint;
+    perTxLimit: bigint;
+    allowedChainsBitmap: bigint;
+    protocolWhitelist: readonly Address[];
+    isActive: boolean;
+    createdAt: bigint;
+  } | undefined;
+
+  const policy: Policy | undefined = rawPolicy
+    ? toPolicy(rawPolicy)
     : undefined;
 
   return {
     policy,
     dailyLimit: policy?.dailyLimit,
-    maxPerTransaction: policy?.maxPerTransaction,
-    allowedOperations: policy?.allowedOperations,
-    expiresAt: policy?.expiresAt,
+    perTxLimit: policy?.perTxLimit,
+    isActive: policy?.isActive,
+    createdAt: policy?.createdAt,
     isLoading,
     error,
     refetch,
@@ -65,7 +69,7 @@ export function useAgentPolicy(agentAddress: Address | undefined) {
  * Hook to get remaining daily limit for an agent
  */
 export function useRemainingDailyLimit(agentAddress: Address | undefined) {
-  const { address, isReady } = useWallet();
+  const { isReady } = useWallet();
 
   const {
     data: remaining,
@@ -76,12 +80,12 @@ export function useRemainingDailyLimit(agentAddress: Address | undefined) {
     address: POLICY_VAULT_ADDRESS,
     abi: PolicyVaultABI,
     functionName: 'getRemainingDailyLimit',
-    args: address && agentAddress ? [address, agentAddress] : undefined,
+    args: agentAddress ? [agentAddress] : undefined,
     chainId: arcTestnet.id,
     query: {
-      enabled: isReady && !!address && !!agentAddress,
-      staleTime: 10_000, // 10 seconds (changes frequently)
-      refetchInterval: 30_000, // 30 seconds
+      enabled: isReady && !!agentAddress,
+      staleTime: 10_000,
+      refetchInterval: 30_000,
     },
   });
 
@@ -103,13 +107,11 @@ export function useRemainingDailyLimit(agentAddress: Address | undefined) {
 export function useCanSpend(
   agentAddress: Address | undefined,
   amount: bigint | undefined,
-  operationType: OperationType = 'transfer'
 ) {
-  const { address, isReady } = useWallet();
-  const opTypeNum = fromOperationTypes([operationType])[0];
+  const { isReady } = useWallet();
 
   const {
-    data: canSpend,
+    data,
     isLoading,
     error,
     refetch,
@@ -118,17 +120,18 @@ export function useCanSpend(
     abi: PolicyVaultABI,
     functionName: 'canSpend',
     args:
-      address && agentAddress && amount !== undefined
-        ? [address, agentAddress, amount, opTypeNum]
+      agentAddress && amount !== undefined
+        ? [agentAddress, amount]
         : undefined,
     chainId: arcTestnet.id,
     query: {
-      enabled: isReady && !!address && !!agentAddress && amount !== undefined,
+      enabled: isReady && !!agentAddress && amount !== undefined,
     },
   });
 
   return {
-    canSpend: canSpend ?? false,
+    canSpend: (data as readonly [boolean, string] | undefined)?.[0] ?? false,
+    reason: (data as readonly [boolean, string] | undefined)?.[1],
     isLoading,
     error,
     refetch,

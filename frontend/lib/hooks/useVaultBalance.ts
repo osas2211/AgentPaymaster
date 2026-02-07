@@ -1,11 +1,11 @@
-'use client';
+'use client'
 
-import { useReadContract } from 'wagmi';
-import { useWallet } from './useWallet';
-import { POLICY_VAULT_ADDRESS } from '@/lib/contracts/addresses';
-import { PolicyVaultABI } from '@/lib/contracts/abi';
-import { arcTestnet } from '@/lib/config/wagmi';
-import type { VaultBalance } from '@/types';
+import { useReadContract } from 'wagmi'
+import { useWallet } from './useWallet'
+import { POLICY_VAULT_ADDRESS } from '@/lib/contracts/addresses'
+import { PolicyVaultABI } from '@/lib/contracts/abi'
+import { arcTestnet } from '@/lib/config/wagmi'
+import type { VaultBalance } from '@/types'
 
 // ============================================
 // useVaultBalance Hook
@@ -16,7 +16,7 @@ import type { VaultBalance } from '@/types';
  * Returns total, available, and allocated amounts
  */
 export function useVaultBalance() {
-  const { address, isReady } = useWallet();
+  const { address, isReady } = useWallet()
 
   const {
     data,
@@ -28,23 +28,23 @@ export function useVaultBalance() {
     address: POLICY_VAULT_ADDRESS,
     abi: PolicyVaultABI,
     functionName: 'getBalance',
-    args: address ? [address] : undefined,
+    args: [],
     chainId: arcTestnet.id,
     query: {
       enabled: isReady && !!address,
       staleTime: 30_000, // 30 seconds
       refetchInterval: 60_000, // 1 minute
     },
-  });
+  })
 
-  // Parse the response
+  // Parse the response — contract returns (total, available), derive allocated
   const balance: VaultBalance | undefined = data
     ? {
-        total: data[0],
-        available: data[1],
-        allocated: data[2],
-      }
-    : undefined;
+      total: data[0],
+      available: data[1],
+      allocated: data[0] - data[1],
+    }
+    : undefined
 
   return {
     // Balance data
@@ -60,5 +60,5 @@ export function useVaultBalance() {
 
     // Actions
     refetch,
-  };
+  }
 }

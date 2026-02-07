@@ -5,6 +5,7 @@ import React from "react"
 import { ConnectWallet } from "./wallet/ConnectWallet"
 
 const links = [
+  { pathname: "Dashboard", route: "/dashboard" },
   { pathname: "setup", route: "/setup" },
   { pathname: "Sessions", route: "/sessions" },
   { pathname: "Swap", route: "/swap" },

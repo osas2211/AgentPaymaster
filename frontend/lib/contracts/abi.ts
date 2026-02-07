@@ -2,78 +2,121 @@
 // PolicyVault ABI
 // ============================================
 
+// Shared tuple components for struct encoding
+const PolicyTuple = {
+  name: 'policy',
+  type: 'tuple',
+  components: [
+    { name: 'dailyLimit', type: 'uint256' },
+    { name: 'perTxLimit', type: 'uint256' },
+    { name: 'allowedChainsBitmap', type: 'uint256' },
+    { name: 'protocolWhitelist', type: 'address[]' },
+    { name: 'isActive', type: 'bool' },
+    { name: 'createdAt', type: 'uint256' },
+  ],
+} as const;
+
+const AgentTuple = {
+  name: 'agent',
+  type: 'tuple',
+  components: [
+    {
+      name: 'policy',
+      type: 'tuple',
+      components: [
+        { name: 'dailyLimit', type: 'uint256' },
+        { name: 'perTxLimit', type: 'uint256' },
+        { name: 'allowedChainsBitmap', type: 'uint256' },
+        { name: 'protocolWhitelist', type: 'address[]' },
+        { name: 'isActive', type: 'bool' },
+        { name: 'createdAt', type: 'uint256' },
+      ],
+    },
+    { name: 'spentToday', type: 'uint256' },
+    { name: 'lastSpendTimestamp', type: 'uint256' },
+    { name: 'totalSpent', type: 'uint256' },
+    { name: 'sessionCount', type: 'uint256' },
+  ],
+} as const;
+
+const SessionTuple = {
+  name: 'session',
+  type: 'tuple',
+  components: [
+    { name: 'channelId', type: 'bytes32' },
+    { name: 'agent', type: 'address' },
+    { name: 'allocation', type: 'uint256' },
+    { name: 'spent', type: 'uint256' },
+    { name: 'isActive', type: 'bool' },
+    { name: 'openedAt', type: 'uint256' },
+  ],
+} as const;
+
 export const PolicyVaultABI = [
   // ============================================
   // Read Functions
   // ============================================
 
-  // Get vault balance for an owner
+  // Get vault balance (no args — single-owner vault)
   {
     type: 'function',
     name: 'getBalance',
-    inputs: [{ name: 'owner', type: 'address' }],
+    inputs: [],
     outputs: [
       { name: 'total', type: 'uint256' },
       { name: 'available', type: 'uint256' },
-      { name: 'allocated', type: 'uint256' },
     ],
     stateMutability: 'view',
   },
 
-  // Get agent info
+  // Get agent info — returns Agent struct
   {
     type: 'function',
     name: 'getAgentInfo',
-    inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'agent', type: 'address' },
-    ],
-    outputs: [
-      { name: 'isAuthorized', type: 'bool' },
-      { name: 'isPaused', type: 'bool' },
-      { name: 'totalSpent', type: 'uint256' },
-      { name: 'authorizedAt', type: 'uint256' },
-    ],
+    inputs: [{ name: 'agent', type: 'address' }],
+    outputs: [AgentTuple],
     stateMutability: 'view',
   },
 
-  // Get agent policy
+  // Get agent policy — returns Policy struct
   {
     type: 'function',
     name: 'getAgentPolicy',
-    inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'agent', type: 'address' },
-    ],
-    outputs: [
-      { name: 'dailyLimit', type: 'uint256' },
-      { name: 'maxPerTransaction', type: 'uint256' },
-      { name: 'allowedOperations', type: 'uint8[]' },
-      { name: 'expiresAt', type: 'uint256' },
-    ],
+    inputs: [{ name: 'agent', type: 'address' }],
+    outputs: [PolicyTuple],
     stateMutability: 'view',
   },
 
-  // Get list of authorized agents
+  // Get list of authorized agents (no args)
   {
     type: 'function',
     name: 'getAuthorizedAgents',
-    inputs: [{ name: 'owner', type: 'address' }],
+    inputs: [],
     outputs: [{ name: 'agents', type: 'address[]' }],
     stateMutability: 'view',
   },
 
-  // Check if agent can spend amount
+  // Check if agent is authorized and active
+  {
+    type: 'function',
+    name: 'isAgentAuthorized',
+    inputs: [{ name: 'agent', type: 'address' }],
+    outputs: [{ name: 'authorized', type: 'bool' }],
+    stateMutability: 'view',
+  },
+
+  // Check if agent can spend amount — returns (bool, string)
   {
     type: 'function',
     name: 'canSpend',
     inputs: [
-      { name: 'owner', type: 'address' },
       { name: 'agent', type: 'address' },
       { name: 'amount', type: 'uint256' },
-      { name: 'operationType', type: 'uint8' },
     ],
-    outputs: [{ name: 'allowed', type: 'bool' }],
+    outputs: [
+      { name: 'allowed', type: 'bool' },
+      { name: 'reason', type: 'string' },
+    ],
     stateMutability: 'view',
   },
 
@@ -81,28 +124,17 @@ export const PolicyVaultABI = [
   {
     type: 'function',
     name: 'getRemainingDailyLimit',
-    inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'agent', type: 'address' },
-    ],
+    inputs: [{ name: 'agent', type: 'address' }],
     outputs: [{ name: 'remaining', type: 'uint256' }],
     stateMutability: 'view',
   },
 
-  // Get session info
+  // Get session info — returns Session struct
   {
     type: 'function',
-    name: 'getSession',
+    name: 'getSessionInfo',
     inputs: [{ name: 'sessionId', type: 'bytes32' }],
-    outputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'agent', type: 'address' },
-      { name: 'allocation', type: 'uint256' },
-      { name: 'spent', type: 'uint256' },
-      { name: 'status', type: 'uint8' },
-      { name: 'openedAt', type: 'uint256' },
-      { name: 'closedAt', type: 'uint256' },
-    ],
+    outputs: [SessionTuple],
     stateMutability: 'view',
   },
 
@@ -128,25 +160,13 @@ export const PolicyVaultABI = [
     stateMutability: 'nonpayable',
   },
 
-  // Emergency withdraw all available USDC
-  {
-    type: 'function',
-    name: 'emergencyWithdraw',
-    inputs: [],
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-
-  // Authorize an agent with policy
+  // Authorize an agent with Policy struct
   {
     type: 'function',
     name: 'authorizeAgent',
     inputs: [
       { name: 'agent', type: 'address' },
-      { name: 'dailyLimit', type: 'uint256' },
-      { name: 'maxPerTransaction', type: 'uint256' },
-      { name: 'allowedOperations', type: 'uint8[]' },
-      { name: 'expiresAt', type: 'uint256' },
+      PolicyTuple,
     ],
     outputs: [],
     stateMutability: 'nonpayable',
@@ -161,7 +181,7 @@ export const PolicyVaultABI = [
     stateMutability: 'nonpayable',
   },
 
-  // Pause agent (temporary)
+  // Pause agent
   {
     type: 'function',
     name: 'pauseAgent',
@@ -179,12 +199,24 @@ export const PolicyVaultABI = [
     stateMutability: 'nonpayable',
   },
 
+  // Spend — agent calls to send USDC
+  {
+    type: 'function',
+    name: 'spend',
+    inputs: [
+      { name: 'recipient', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+
   // Open a state channel session
   {
     type: 'function',
     name: 'openSession',
     inputs: [
-      { name: 'agent', type: 'address' },
+      { name: 'channelId', type: 'bytes32' },
       { name: 'allocation', type: 'uint256' },
     ],
     outputs: [{ name: 'sessionId', type: 'bytes32' }],
@@ -197,9 +229,47 @@ export const PolicyVaultABI = [
     name: 'closeSession',
     inputs: [
       { name: 'sessionId', type: 'bytes32' },
-      { name: 'spent', type: 'uint256' },
-      { name: 'signature', type: 'bytes' },
+      { name: 'finalSpent', type: 'uint256' },
     ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+
+  // Update agent policy
+  {
+    type: 'function',
+    name: 'updateAgentPolicy',
+    inputs: [
+      { name: 'agent', type: 'address' },
+      PolicyTuple,
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+
+  // Emergency pause all
+  {
+    type: 'function',
+    name: 'emergencyPauseAll',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+
+  // Emergency unpause all
+  {
+    type: 'function',
+    name: 'emergencyUnpauseAll',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+
+  // Emergency withdraw all available funds
+  {
+    type: 'function',
+    name: 'emergencyWithdrawAll',
+    inputs: [],
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -230,36 +300,57 @@ export const PolicyVaultABI = [
     type: 'event',
     name: 'AgentAuthorized',
     inputs: [
-      { name: 'owner', type: 'address', indexed: true },
       { name: 'agent', type: 'address', indexed: true },
       { name: 'dailyLimit', type: 'uint256', indexed: false },
+      { name: 'perTxLimit', type: 'uint256', indexed: false },
     ],
   },
 
   {
     type: 'event',
     name: 'AgentRevoked',
-    inputs: [
-      { name: 'owner', type: 'address', indexed: true },
-      { name: 'agent', type: 'address', indexed: true },
-    ],
+    inputs: [{ name: 'agent', type: 'address', indexed: true }],
   },
 
   {
     type: 'event',
     name: 'AgentPaused',
-    inputs: [
-      { name: 'owner', type: 'address', indexed: true },
-      { name: 'agent', type: 'address', indexed: true },
-    ],
+    inputs: [{ name: 'agent', type: 'address', indexed: true }],
   },
 
   {
     type: 'event',
     name: 'AgentResumed',
+    inputs: [{ name: 'agent', type: 'address', indexed: true }],
+  },
+
+  {
+    type: 'event',
+    name: 'AgentPolicyUpdated',
     inputs: [
-      { name: 'owner', type: 'address', indexed: true },
       { name: 'agent', type: 'address', indexed: true },
+      { name: 'newDailyLimit', type: 'uint256', indexed: false },
+      { name: 'newPerTxLimit', type: 'uint256', indexed: false },
+    ],
+  },
+
+  {
+    type: 'event',
+    name: 'SpendExecuted',
+    inputs: [
+      { name: 'agent', type: 'address', indexed: true },
+      { name: 'recipient', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+    ],
+  },
+
+  {
+    type: 'event',
+    name: 'SpendRejected',
+    inputs: [
+      { name: 'agent', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+      { name: 'reason', type: 'string', indexed: false },
     ],
   },
 
@@ -268,7 +359,6 @@ export const PolicyVaultABI = [
     name: 'SessionOpened',
     inputs: [
       { name: 'sessionId', type: 'bytes32', indexed: true },
-      { name: 'owner', type: 'address', indexed: true },
       { name: 'agent', type: 'address', indexed: true },
       { name: 'allocation', type: 'uint256', indexed: false },
     ],
@@ -279,8 +369,25 @@ export const PolicyVaultABI = [
     name: 'SessionClosed',
     inputs: [
       { name: 'sessionId', type: 'bytes32', indexed: true },
-      { name: 'spent', type: 'uint256', indexed: false },
-      { name: 'refunded', type: 'uint256', indexed: false },
+      { name: 'finalSpent', type: 'uint256', indexed: false },
+    ],
+  },
+
+  {
+    type: 'event',
+    name: 'EmergencyPause',
+    inputs: [
+      { name: 'owner', type: 'address', indexed: true },
+      { name: 'timestamp', type: 'uint256', indexed: false },
+    ],
+  },
+
+  {
+    type: 'event',
+    name: 'EmergencyUnpause',
+    inputs: [
+      { name: 'owner', type: 'address', indexed: true },
+      { name: 'timestamp', type: 'uint256', indexed: false },
     ],
   },
 ] as const;

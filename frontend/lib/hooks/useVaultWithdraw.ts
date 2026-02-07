@@ -111,7 +111,7 @@ export function useVaultWithdraw() {
         {
           address: POLICY_VAULT_ADDRESS,
           abi: PolicyVaultABI,
-          functionName: 'emergencyWithdraw',
+          functionName: 'emergencyWithdrawAll',
           args: [],
           chainId: arcTestnet.id,
         },

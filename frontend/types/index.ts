@@ -1,61 +1,68 @@
 import type { Address } from 'viem';
 
 // ============================================
-// Core Domain Types
+// Core Domain Types (matching contract structs)
 // ============================================
 
 /**
  * Agent spending policy configuration
+ * Mirrors IPolicyVault.Policy struct
  */
 export interface Policy {
   /** Maximum amount agent can spend per day in USDC (6 decimals) */
   dailyLimit: bigint;
   /** Maximum amount per single transaction in USDC (6 decimals) */
-  maxPerTransaction: bigint;
-  /** Allowed operation types for this agent */
-  allowedOperations: OperationType[];
-  /** Policy expiration timestamp (0 = never expires) */
-  expiresAt: number;
+  perTxLimit: bigint;
+  /** Bitmap of chain IDs the agent can operate on */
+  allowedChainsBitmap: bigint;
+  /** Array of contract addresses the agent can interact with (empty = all) */
+  protocolWhitelist: readonly Address[];
+  /** Whether the agent's policy is currently active */
+  isActive: boolean;
+  /** Timestamp when the policy was created */
+  createdAt: number;
 }
 
 /**
  * Authorized agent with their policy
+ * address and name are frontend-only fields not in the contract struct
  */
 export interface Agent {
-  /** Agent's wallet address */
+  /** Agent's wallet address (frontend-only, not in contract struct) */
   address: Address;
-  /** Agent's display name */
+  /** Agent's display name (frontend-only) */
   name: string;
   /** Agent's spending policy */
   policy: Policy;
-  /** Whether agent is currently paused */
-  isPaused: boolean;
+  /** Amount spent in the current rolling 24h window */
+  spentToday: bigint;
+  /** Timestamp of the last spend */
+  lastSpendTimestamp: number;
   /** Total amount spent by this agent in USDC */
   totalSpent: bigint;
-  /** When the agent was authorized */
-  authorizedAt: number;
+  /** Number of Yellow Network sessions opened */
+  sessionCount: number;
 }
 
 /**
- * State channel session with an agent
+ * On-chain session state
+ * Mirrors IPolicyVault.Session struct
  */
 export interface Session {
-  /** Unique session identifier */
+  /** Unique session identifier (bytes32) */
   id: string;
+  /** Yellow Network channel ID (bytes32) */
+  channelId: string;
   /** Agent address this session belongs to */
   agentAddress: Address;
   /** Amount allocated to this session in USDC */
   allocation: bigint;
   /** Amount spent in this session */
   spent: bigint;
-  /** Session status */
-  status: SessionStatus;
-  /** When session was opened */
+  /** Whether the session is currently active */
+  isActive: boolean;
+  /** When session was opened (unix timestamp) */
   openedAt: number;
-  /** When session was closed (0 if still open) */
-  closedAt: number;
-  /** Number of operations in this session */
-  operationCount: number;
 }
 
 /**
@@ -98,8 +105,6 @@ export type OperationType =
 
 export type OperationStatus = 'pending' | 'confirmed' | 'failed' | 'settled';
 
-export type SessionStatus = 'opening' | 'active' | 'closing' | 'closed' | 'settled';
-
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 // ============================================
@@ -111,7 +116,7 @@ export interface VaultBalance {
   total: bigint;
   /** Available balance (not allocated to sessions) */
   available: bigint;
-  /** Amount allocated to active sessions */
+  /** Amount allocated to active sessions (derived: total - available) */
   allocated: bigint;
 }
 
@@ -189,13 +194,13 @@ export interface AuthorizeAgentFormData {
   agentAddress: Address;
   agentName: string;
   dailyLimit: string;
-  maxPerTransaction: string;
-  allowedOperations: OperationType[];
-  expiresAt?: Date;
+  perTxLimit: string;
+  allowedChainsBitmap: string;
+  protocolWhitelist: Address[];
 }
 
 export interface OpenSessionFormData {
-  agentAddress: Address;
+  channelId: string;
   allocation: string;
 }
 

@@ -8,6 +8,7 @@ import { useSessionStore } from '@/lib/stores/useSessionStore';
 import { POLICY_VAULT_ADDRESS } from '@/lib/contracts/addresses';
 import { PolicyVaultABI } from '@/lib/contracts/abi';
 import { arcTestnet } from '@/lib/config/wagmi';
+import { toSession } from '@/lib/contracts/types';
 import { QUERY_KEYS } from '@/lib/utils/constants';
 import toast from 'react-hot-toast';
 import type { MutationCallbacks, Session } from '@/types';
@@ -61,32 +62,31 @@ export function useSession() {
 
   /**
    * Open a new session (on-chain + off-chain)
+   * Contract: openSession(bytes32 channelId, uint256 allocation)
    */
   const openSession = async (
-    agentAddress: Address,
+    channelId: `0x${string}`,
     allocation: bigint,
     callbacks?: MutationCallbacks
   ) => {
     const toastId = toast.loading('Opening session...');
 
     try {
-      // First, open on-chain
       writeOpenSession(
         {
           address: POLICY_VAULT_ADDRESS,
           abi: PolicyVaultABI,
           functionName: 'openSession',
-          args: [agentAddress, allocation],
+          args: [channelId, allocation],
           chainId: arcTestnet.id,
         },
         {
           onSuccess: async () => {
             // Then open off-chain with Yellow Network
-            const sessionId = await openYellowSession(agentAddress, allocation);
+            const sessionId = await openYellowSession(address as Address, allocation);
 
             if (sessionId) {
               toast.success('Session opened!', { id: toastId });
-              // Invalidate balance queries
               if (address) {
                 queryClient.invalidateQueries({
                   queryKey: QUERY_KEYS.vaultBalance(address),
@@ -112,11 +112,11 @@ export function useSession() {
 
   /**
    * Close a session and settle on-chain
+   * Contract: closeSession(bytes32 sessionId, uint256 finalSpent)
    */
   const closeSession = async (
     sessionId: string,
     spent: bigint,
-    signature: `0x${string}`,
     callbacks?: MutationCallbacks
   ) => {
     const toastId = toast.loading('Closing session...');
@@ -137,13 +137,12 @@ export function useSession() {
           address: POLICY_VAULT_ADDRESS,
           abi: PolicyVaultABI,
           functionName: 'closeSession',
-          args: [sessionId as `0x${string}`, spent, signature],
+          args: [sessionId as `0x${string}`, spent],
           chainId: arcTestnet.id,
         },
         {
           onSuccess: () => {
             toast.success('Session closed and settled!', { id: toastId });
-            // Invalidate balance queries
             if (address) {
               queryClient.invalidateQueries({
                 queryKey: QUERY_KEYS.vaultBalance(address),
@@ -219,7 +218,7 @@ export function useSessionInfo(sessionId: string | undefined) {
   } = useReadContract({
     address: POLICY_VAULT_ADDRESS,
     abi: PolicyVaultABI,
-    functionName: 'getSession',
+    functionName: 'getSessionInfo',
     args: sessionId ? [sessionId as `0x${string}`] : undefined,
     chainId: arcTestnet.id,
     query: {
@@ -227,14 +226,27 @@ export function useSessionInfo(sessionId: string | undefined) {
     },
   });
 
+  const sessionData = data as {
+    channelId: string;
+    agent: Address;
+    allocation: bigint;
+    spent: bigint;
+    isActive: boolean;
+    openedAt: bigint;
+  } | undefined;
+
+  const session = sessionData && sessionId
+    ? toSession(sessionId, sessionData)
+    : undefined;
+
   return {
-    owner: data?.[0],
-    agent: data?.[1],
-    allocation: data?.[2],
-    spent: data?.[3],
-    status: data?.[4],
-    openedAt: data?.[5] ? Number(data[5]) : undefined,
-    closedAt: data?.[6] ? Number(data[6]) : undefined,
+    session,
+    channelId: session?.channelId,
+    agent: session?.agentAddress,
+    allocation: session?.allocation,
+    spent: session?.spent,
+    isActive: session?.isActive,
+    openedAt: session?.openedAt,
     isLoading,
     error,
     refetch,

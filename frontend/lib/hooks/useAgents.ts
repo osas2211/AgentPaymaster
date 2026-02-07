@@ -5,7 +5,7 @@ import { useWallet } from './useWallet';
 import { POLICY_VAULT_ADDRESS } from '@/lib/contracts/addresses';
 import { PolicyVaultABI } from '@/lib/contracts/abi';
 import { arcTestnet } from '@/lib/config/wagmi';
-import { toPolicy, toAgent } from '@/lib/contracts/types';
+import { toAgent } from '@/lib/contracts/types';
 import type { Agent } from '@/types';
 import type { Address } from 'viem';
 
@@ -19,7 +19,7 @@ import type { Address } from 'viem';
 export function useAgents() {
   const { address, isReady } = useWallet();
 
-  // Get list of agent addresses
+  // Get list of agent addresses (no args — contract is single-owner)
   const {
     data: agentAddresses,
     isLoading: isLoadingAddresses,
@@ -29,7 +29,7 @@ export function useAgents() {
     address: POLICY_VAULT_ADDRESS,
     abi: PolicyVaultABI,
     functionName: 'getAuthorizedAgents',
-    args: address ? [address] : undefined,
+    args: [],
     chainId: arcTestnet.id,
     query: {
       enabled: isReady && !!address,
@@ -37,23 +37,14 @@ export function useAgents() {
     },
   });
 
-  // Get info and policy for each agent
-  const agentInfoContracts = (agentAddresses || []).flatMap((agentAddr) => [
-    {
-      address: POLICY_VAULT_ADDRESS,
-      abi: PolicyVaultABI,
-      functionName: 'getAgentInfo' as const,
-      args: [address!, agentAddr] as const,
-      chainId: arcTestnet.id,
-    },
-    {
-      address: POLICY_VAULT_ADDRESS,
-      abi: PolicyVaultABI,
-      functionName: 'getAgentPolicy' as const,
-      args: [address!, agentAddr] as const,
-      chainId: arcTestnet.id,
-    },
-  ]);
+  // Get info for each agent (single arg: agent address)
+  const agentInfoContracts = (agentAddresses || []).map((agentAddr) => ({
+    address: POLICY_VAULT_ADDRESS,
+    abi: PolicyVaultABI,
+    functionName: 'getAgentInfo' as const,
+    args: [agentAddr] as const,
+    chainId: arcTestnet.id,
+  }));
 
   const {
     data: agentDetails,
@@ -69,33 +60,27 @@ export function useAgents() {
   const agents: Agent[] = [];
   if (agentAddresses && agentDetails) {
     for (let i = 0; i < agentAddresses.length; i++) {
-      const infoResult = agentDetails[i * 2];
-      const policyResult = agentDetails[i * 2 + 1];
+      const result = agentDetails[i];
 
-      if (infoResult.status === 'success' && policyResult.status === 'success') {
-        const info = infoResult.result as [boolean, boolean, bigint, bigint];
-        const policyData = policyResult.result as [bigint, bigint, readonly number[], bigint];
+      if (result.status === 'success' && result.result) {
+        const agentData = result.result as {
+          policy: {
+            dailyLimit: bigint;
+            perTxLimit: bigint;
+            allowedChainsBitmap: bigint;
+            protocolWhitelist: readonly Address[];
+            isActive: boolean;
+            createdAt: bigint;
+          };
+          spentToday: bigint;
+          lastSpendTimestamp: bigint;
+          totalSpent: bigint;
+          sessionCount: bigint;
+        };
 
-        const policy = toPolicy({
-          dailyLimit: policyData[0],
-          maxPerTransaction: policyData[1],
-          allowedOperations: policyData[2],
-          expiresAt: policyData[3],
-        });
-
-        const agent = toAgent(
-          agentAddresses[i],
-          `Agent ${i + 1}`, // Default name, can be overridden
-          {
-            isAuthorized: info[0],
-            isPaused: info[1],
-            totalSpent: info[2],
-            authorizedAt: info[3],
-          },
-          policy
+        agents.push(
+          toAgent(agentAddresses[i], `Agent ${i + 1}`, agentData)
         );
-
-        agents.push(agent);
       }
     }
   }
@@ -123,7 +108,7 @@ export function useAgents() {
  * Hook to get info for a specific agent
  */
 export function useAgentInfo(agentAddress: Address | undefined) {
-  const { address, isReady } = useWallet();
+  const { isReady } = useWallet();
 
   const {
     data,
@@ -134,18 +119,27 @@ export function useAgentInfo(agentAddress: Address | undefined) {
     address: POLICY_VAULT_ADDRESS,
     abi: PolicyVaultABI,
     functionName: 'getAgentInfo',
-    args: address && agentAddress ? [address, agentAddress] : undefined,
+    args: agentAddress ? [agentAddress] : undefined,
     chainId: arcTestnet.id,
     query: {
-      enabled: isReady && !!address && !!agentAddress,
+      enabled: isReady && !!agentAddress,
     },
   });
 
+  const agentData = data as {
+    policy: { isActive: boolean; createdAt: bigint };
+    spentToday: bigint;
+    lastSpendTimestamp: bigint;
+    totalSpent: bigint;
+    sessionCount: bigint;
+  } | undefined;
+
   return {
-    isAuthorized: data?.[0],
-    isPaused: data?.[1],
-    totalSpent: data?.[2],
-    authorizedAt: data?.[3] ? Number(data[3]) : undefined,
+    isActive: agentData?.policy.isActive,
+    isPaused: agentData ? !agentData.policy.isActive : undefined,
+    totalSpent: agentData?.totalSpent,
+    spentToday: agentData?.spentToday,
+    createdAt: agentData?.policy.createdAt ? Number(agentData.policy.createdAt) : undefined,
     isLoading,
     error,
     refetch,
@@ -160,7 +154,22 @@ export function useAgentInfo(agentAddress: Address | undefined) {
  * Simple hook to check if an agent is authorized
  */
 export function useIsAgentAuthorized(agentAddress: Address | undefined) {
-  const { isAuthorized, isLoading, error } = useAgentInfo(agentAddress);
+  const { isReady } = useWallet();
+
+  const {
+    data: isAuthorized,
+    isLoading,
+    error,
+  } = useReadContract({
+    address: POLICY_VAULT_ADDRESS,
+    abi: PolicyVaultABI,
+    functionName: 'isAgentAuthorized',
+    args: agentAddress ? [agentAddress] : undefined,
+    chainId: arcTestnet.id,
+    query: {
+      enabled: isReady && !!agentAddress,
+    },
+  });
 
   return {
     isAuthorized: isAuthorized ?? false,

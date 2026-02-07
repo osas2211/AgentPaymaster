@@ -43,12 +43,10 @@ export function useSettle() {
    * Settle a session on-chain
    * @param sessionId - The session ID (bytes32)
    * @param spent - Total amount spent in the session
-   * @param signature - Signature from the agent confirming the spent amount
    */
   const settle = async (
     sessionId: string,
     spent: bigint,
-    signature: `0x${string}`,
     callbacks?: MutationCallbacks
   ) => {
     const toastId = toast.loading('Settling session on-chain...');
@@ -59,7 +57,7 @@ export function useSettle() {
           address: POLICY_VAULT_ADDRESS,
           abi: PolicyVaultABI,
           functionName: 'closeSession',
-          args: [sessionId as `0x${string}`, spent, signature],
+          args: [sessionId as `0x${string}`, spent],
           chainId: arcTestnet.id,
         },
         {

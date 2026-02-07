@@ -1,134 +1,88 @@
 import type { Address } from 'viem';
-import type { Agent, Policy, Session, OperationType, SessionStatus } from '@/types';
+import type { Agent, Policy, Session } from '@/types';
 
 // ============================================
-// Operation Type Mapping
-// ============================================
-
-const OPERATION_TYPE_MAP: Record<number, OperationType> = {
-  0: 'transfer',
-  1: 'swap_request',
-  2: 'approve',
-  3: 'state_update',
-  4: 'balance_check',
-  5: 'policy_check',
-};
-
-const OPERATION_TYPE_REVERSE: Record<OperationType, number> = {
-  transfer: 0,
-  swap_request: 1,
-  approve: 2,
-  state_update: 3,
-  balance_check: 4,
-  policy_check: 5,
-};
-
-const SESSION_STATUS_MAP: Record<number, SessionStatus> = {
-  0: 'opening',
-  1: 'active',
-  2: 'closing',
-  3: 'closed',
-  4: 'settled',
-};
-
-// ============================================
-// Type Converters
+// Type Converters — contract structs to frontend types
 // ============================================
 
 /**
- * Convert contract operation type array to OperationType[]
- */
-export function toOperationTypes(operations: readonly number[]): OperationType[] {
-  return operations
-    .map((op) => OPERATION_TYPE_MAP[op])
-    .filter((op): op is OperationType => op !== undefined);
-}
-
-/**
- * Convert OperationType[] to contract format
- */
-export function fromOperationTypes(operations: OperationType[]): number[] {
-  return operations.map((op) => OPERATION_TYPE_REVERSE[op]);
-}
-
-/**
- * Convert contract policy data to Policy type
+ * Convert contract Policy struct to frontend Policy type
+ * Contract returns: (dailyLimit, perTxLimit, allowedChainsBitmap, protocolWhitelist, isActive, createdAt)
  */
 export function toPolicy(data: {
   dailyLimit: bigint;
-  maxPerTransaction: bigint;
-  allowedOperations: readonly number[];
-  expiresAt: bigint;
+  perTxLimit: bigint;
+  allowedChainsBitmap: bigint;
+  protocolWhitelist: readonly Address[];
+  isActive: boolean;
+  createdAt: bigint;
 }): Policy {
   return {
     dailyLimit: data.dailyLimit,
-    maxPerTransaction: data.maxPerTransaction,
-    allowedOperations: toOperationTypes(data.allowedOperations),
-    expiresAt: Number(data.expiresAt),
+    perTxLimit: data.perTxLimit,
+    allowedChainsBitmap: data.allowedChainsBitmap,
+    protocolWhitelist: data.protocolWhitelist,
+    isActive: data.isActive,
+    createdAt: Number(data.createdAt),
   };
 }
 
 /**
- * Convert contract agent info + policy to Agent type
+ * Convert contract Agent struct to frontend Agent type
+ * Contract returns: (policy, spentToday, lastSpendTimestamp, totalSpent, sessionCount)
+ * address and name are added by the hook
  */
 export function toAgent(
   address: Address,
   name: string,
-  info: {
-    isAuthorized: boolean;
-    isPaused: boolean;
+  data: {
+    policy: {
+      dailyLimit: bigint;
+      perTxLimit: bigint;
+      allowedChainsBitmap: bigint;
+      protocolWhitelist: readonly Address[];
+      isActive: boolean;
+      createdAt: bigint;
+    };
+    spentToday: bigint;
+    lastSpendTimestamp: bigint;
     totalSpent: bigint;
-    authorizedAt: bigint;
-  },
-  policy: Policy
+    sessionCount: bigint;
+  }
 ): Agent {
   return {
     address,
     name,
-    policy,
-    isPaused: info.isPaused,
-    totalSpent: info.totalSpent,
-    authorizedAt: Number(info.authorizedAt),
+    policy: toPolicy(data.policy),
+    spentToday: data.spentToday,
+    lastSpendTimestamp: Number(data.lastSpendTimestamp),
+    totalSpent: data.totalSpent,
+    sessionCount: Number(data.sessionCount),
   };
 }
 
 /**
- * Convert contract session data to Session type
+ * Convert contract Session struct to frontend Session type
+ * Contract returns: (channelId, agent, allocation, spent, isActive, openedAt)
  */
 export function toSession(
   id: string,
   data: {
-    owner: Address;
+    channelId: string;
     agent: Address;
     allocation: bigint;
     spent: bigint;
-    status: number;
+    isActive: boolean;
     openedAt: bigint;
-    closedAt: bigint;
   }
 ): Session {
   return {
     id,
+    channelId: data.channelId,
     agentAddress: data.agent,
     allocation: data.allocation,
     spent: data.spent,
-    status: SESSION_STATUS_MAP[data.status] || 'active',
+    isActive: data.isActive,
     openedAt: Number(data.openedAt),
-    closedAt: Number(data.closedAt),
-    operationCount: 0, // Will be updated from off-chain data
   };
-}
-
-/**
- * Convert session status to contract format
- */
-export function fromSessionStatus(status: SessionStatus): number {
-  const reverse: Record<SessionStatus, number> = {
-    opening: 0,
-    active: 1,
-    closing: 2,
-    closed: 3,
-    settled: 4,
-  };
-  return reverse[status];
 }

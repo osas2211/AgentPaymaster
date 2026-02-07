@@ -6,10 +6,9 @@ import { useWallet } from './useWallet';
 import { POLICY_VAULT_ADDRESS } from '@/lib/contracts/addresses';
 import { PolicyVaultABI } from '@/lib/contracts/abi';
 import { arcTestnet } from '@/lib/config/wagmi';
-import { fromOperationTypes } from '@/lib/contracts/types';
 import { QUERY_KEYS } from '@/lib/utils/constants';
 import toast from 'react-hot-toast';
-import type { OperationType, MutationCallbacks } from '@/types';
+import type { MutationCallbacks } from '@/types';
 import type { Address } from 'viem';
 
 // ============================================
@@ -19,9 +18,10 @@ import type { Address } from 'viem';
 interface AuthorizeAgentParams {
   agentAddress: Address;
   dailyLimit: bigint;
-  maxPerTransaction: bigint;
-  allowedOperations: OperationType[];
-  expiresAt?: number; // Unix timestamp, 0 for never expires
+  perTxLimit: bigint;
+  allowedChainsBitmap?: bigint;
+  protocolWhitelist?: Address[];
+  isActive?: boolean;
 }
 
 /**
@@ -56,34 +56,36 @@ export function useAuthorizeAgent() {
     const {
       agentAddress,
       dailyLimit,
-      maxPerTransaction,
-      allowedOperations,
-      expiresAt = 0,
+      perTxLimit,
+      allowedChainsBitmap = BigInt(0),
+      protocolWhitelist = [],
+      isActive = true,
     } = params;
 
     const toastId = toast.loading('Authorizing agent...');
 
     try {
-      const operationNums = fromOperationTypes(allowedOperations);
+      // Pass Policy as a tuple struct
+      const policyTuple = {
+        dailyLimit,
+        perTxLimit,
+        allowedChainsBitmap,
+        protocolWhitelist,
+        isActive,
+        createdAt: BigInt(0), // Contract sets this to block.timestamp
+      };
 
       writeContract(
         {
           address: POLICY_VAULT_ADDRESS,
           abi: PolicyVaultABI,
           functionName: 'authorizeAgent',
-          args: [
-            agentAddress,
-            dailyLimit,
-            maxPerTransaction,
-            operationNums,
-            BigInt(expiresAt),
-          ],
+          args: [agentAddress, policyTuple],
           chainId: arcTestnet.id,
         },
         {
           onSuccess: () => {
             toast.success('Agent authorized successfully!', { id: toastId });
-            // Invalidate agents list
             if (address) {
               queryClient.invalidateQueries({
                 queryKey: QUERY_KEYS.agents(address),
