@@ -87,18 +87,27 @@ export class AgentRunner {
       command.status = 'validated';
       this.callbacks.onCommandUpdate({ ...command });
 
-      // Step 3: Execute via Yellow Network (or mock execution)
+      // Step 3: Execute via Yellow Network
       const yellowConnected = this.yellowOps?.isConnected() ?? false;
-      const shouldSimulateExecution = isMockMode() && !yellowConnected;
 
       if (yellowConnected) {
-        // Real Yellow Network execution
-        const sessionId = this.yellowOps!.getActiveSessionId();
+        command.status = 'executing';
+        this.callbacks.onCommandUpdate({ ...command });
 
-        if (sessionId && amount > BigInt(0)) {
-          command.status = 'executing';
-          this.callbacks.onCommandUpdate({ ...command });
+        // Auto-open a session if none exists
+        let sessionId = this.yellowOps!.getActiveSessionId();
+        if (!sessionId) {
+          const defaultAllocation = amount > BigInt(0) ? amount * BigInt(10) : parseUnits('1000', 6);
+          sessionId = await this.yellowOps!.openSession(this.agentAddress, defaultAllocation);
+          if (!sessionId) {
+            command.status = 'failed';
+            command.error = 'Failed to open Yellow Network session';
+            this.callbacks.onCommandUpdate({ ...command });
+            return command;
+          }
+        }
 
+        if (amount > BigInt(0)) {
           const target = brianResult.transactions[0]?.to;
           if (target) {
             const success = await this.yellowOps!.transfer(sessionId, amount, target);
@@ -129,10 +138,10 @@ export class AgentRunner {
         } else {
           command.status = 'completed';
           command.gasSaved = this.inferGasSavings(brianResult);
-          command.executionResult = { success: true, method: 'yellow' };
+          command.executionResult = { success: true, method: 'yellow', sessionId };
         }
-      } else if (shouldSimulateExecution) {
-        // Mock mode: simulate execution flow so the demo reaches "completed"
+      } else if (isMockMode()) {
+        // Mock mode without Yellow: simulate so the demo reaches "completed"
         command.status = 'executing';
         this.callbacks.onCommandUpdate({ ...command });
 

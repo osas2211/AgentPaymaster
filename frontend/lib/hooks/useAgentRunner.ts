@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { useWallet } from './useWallet';
 import { useYellow } from '@/components/providers/YellowProvider';
 import { useAgentStore } from '@/lib/stores/useAgentStore';
@@ -37,6 +37,7 @@ export function useAgentRunner() {
   const sessions = useSessionStore((s) => s.sessions);
 
   const runnerRef = useRef<AgentRunner | null>(null);
+  const [runnerReady, setRunnerReady] = useState(false);
   const lastCommandTime = useRef<number>(0);
 
   const mockMode = isMockMode();
@@ -53,6 +54,7 @@ export function useAgentRunner() {
   useEffect(() => {
     if (!walletAddress || !agentAddress) {
       runnerRef.current = null;
+      setRunnerReady(false);
       return;
     }
 
@@ -79,6 +81,7 @@ export function useAgentRunner() {
     );
 
     runnerRef.current = runner;
+    setRunnerReady(true);
   }, [walletAddress, agentAddress, mockMode]);
 
   // Inject Yellow operations whenever connection state changes
@@ -87,12 +90,13 @@ export function useAgentRunner() {
 
     const ops: YellowOperations = {
       transfer: yellow.transfer,
+      openSession: yellow.openSession,
       getActiveSessionId: () => activeSessionId,
       isConnected: () => yellow.isConnected,
     };
 
     runnerRef.current.setYellowOperations(ops);
-  }, [yellow.transfer, yellow.isConnected, activeSessionId]);
+  }, [yellow.transfer, yellow.openSession, yellow.isConnected, activeSessionId]);
 
   // Execute a prompt
   const execute = useCallback(async (prompt: string) => {
@@ -129,7 +133,7 @@ export function useAgentRunner() {
     agentAddress,
     activeSessionId,
     isYellowConnected: yellow.isConnected,
-    isReady: !!runnerRef.current,
+    isReady: runnerReady,
     isBrianConfigured: isBrianConfigured(),
     clearHistory,
     stats: store.stats,

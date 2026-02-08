@@ -1,18 +1,16 @@
 import type { Address } from 'viem'
 import {
   createAuthRequestMessage,
-  createAuthVerifyMessage,
+  createAuthVerifyMessageFromChallenge,
   createCreateChannelMessage,
   createCloseChannelMessage,
   createTransferMessage,
   createPingMessageV2,
-  parseAnyRPCResponse,
   getRequestId,
   getMethod,
-  generateRequestId,
   RPCMethod,
 } from '@erc7824/nitrolite'
-import { YELLOW_WS_URL, CONNECTION_CONFIG, NITROLITE_CONFIG } from './constants'
+import { CONNECTION_CONFIG, NITROLITE_CONFIG } from './constants'
 import { WS_READY_STATE, type NitroliteClientConfig, type NitroliteClientHandlers, type WebSocketLike } from './types'
 import { createSessionKey, createAuthSigner, type SessionKeyManager } from './signer'
 
@@ -24,6 +22,18 @@ interface PendingRequest {
   resolve: (value: unknown) => void
   reject: (error: Error) => void
   timeout: ReturnType<typeof setTimeout>
+}
+
+/**
+ * Extract the first params object from a Nitrolite wire-format message.
+ * Wire format: { res: [requestId, method, [params, ...], timestamp], sig: [...] }
+ */
+function extractParams(parsed: Record<string, unknown>): Record<string, unknown> {
+  const res = parsed.res as unknown[]
+  if (Array.isArray(res) && Array.isArray(res[2]) && res[2].length > 0) {
+    return res[2][0] as Record<string, unknown>
+  }
+  return {}
 }
 
 /**
@@ -134,8 +144,8 @@ export class NitroliteClient {
       },
     )
 
-    const response = await this.sendAndWait<{ channel_id: string }>(msg)
-    return response.channel_id
+    const response = await this.sendAndWait(msg)
+    return (response as Record<string, unknown>).channel_id as string
   }
 
   /**
@@ -191,8 +201,9 @@ export class NitroliteClient {
       scope: NITROLITE_CONFIG.scope,
     })
 
-    // Step 2: Wait for auth_challenge response
-    const challengeResponse = await this.sendAndWait<unknown>(authRequestMsg)
+    // Step 2: Wait for auth_challenge, extract challenge string
+    const challengeParams = await this.sendAndWait(authRequestMsg) as Record<string, unknown>
+    const challengeString = (challengeParams.challengeMessage as string) || ''
 
     // Step 3: Create auth signer and send auth_verify
     const authSigner = createAuthSigner(
@@ -203,9 +214,9 @@ export class NitroliteClient {
       NITROLITE_CONFIG.scope,
     )
 
-    const authVerifyMsg = await createAuthVerifyMessage(
+    const authVerifyMsg = await createAuthVerifyMessageFromChallenge(
       authSigner,
-      challengeResponse as Parameters<typeof createAuthVerifyMessage>[1],
+      challengeString,
     )
 
     // Step 4: Wait for auth_verify success
@@ -223,7 +234,7 @@ export class NitroliteClient {
 
   private handleMessage(data: string): void {
     try {
-      const parsed = JSON.parse(data)
+      const parsed = JSON.parse(data) as Record<string, unknown>
       const requestId = getRequestId(parsed)
       const method = getMethod(parsed)
 
@@ -233,73 +244,54 @@ export class NitroliteClient {
         this.pendingRequests.delete(requestId)
         clearTimeout(pending.timeout)
 
-        // Check for error
         if (method === RPCMethod.Error) {
-          const response = parseAnyRPCResponse(data)
-          pending.reject(new Error(('message' in response ? (response as { message: string }).message : 'RPC error')))
+          const params = extractParams(parsed)
+          pending.reject(new Error((params.message as string) || 'RPC error'))
           return
         }
 
-        // Resolve with the parsed response
-        const response = parseAnyRPCResponse(data)
-        pending.resolve(response)
+        // Resolve with extracted params
+        pending.resolve(extractParams(parsed))
         return
       }
 
-      // Handle server push notifications
+      // Handle server push notifications (requestId 0 or unmatched)
+      const params = extractParams(parsed)
+
       switch (method) {
-        case RPCMethod.BalanceUpdate: {
-          const response = parseAnyRPCResponse(data)
-          const params = 'params' in response ? response.params : undefined
-          if (params && this.handlers.onBalanceUpdate) {
-            this.handlers.onBalanceUpdate({
-              channelId: (params as { channel_id?: string }).channel_id || '',
-              balance: (params as { balance?: string }).balance || '0',
-              asset: (params as { asset?: string }).asset || 'usdc',
-            })
-          }
+        case RPCMethod.BalanceUpdate:
+          this.handlers.onBalanceUpdate?.({
+            channelId: (params.channel_id as string) || '',
+            balance: (params.balance as string) || '0',
+            asset: (params.asset as string) || 'usdc',
+          })
           break
-        }
 
-        case RPCMethod.ChannelUpdate: {
-          const response = parseAnyRPCResponse(data)
-          const params = 'params' in response ? response.params : undefined
-          if (params && this.handlers.onChannelUpdate) {
-            this.handlers.onChannelUpdate({
-              channelId: (params as { channel_id?: string }).channel_id || '',
-              status: (params as { status?: string }).status || 'open',
-            })
-          }
+        case RPCMethod.ChannelUpdate:
+          this.handlers.onChannelUpdate?.({
+            channelId: (params.channel_id as string) || '',
+            status: (params.status as string) || 'open',
+          })
           break
-        }
 
-        case RPCMethod.TransferNotification: {
-          const response = parseAnyRPCResponse(data)
-          const params = 'params' in response ? response.params : undefined
-          if (params && this.handlers.onTransferNotification) {
-            this.handlers.onTransferNotification({
-              channelId: (params as { channel_id?: string }).channel_id || '',
-              amount: (params as { amount?: string }).amount || '0',
-              asset: (params as { asset?: string }).asset || 'usdc',
-              from: (params as { from?: string }).from || '',
-              to: (params as { to?: string }).to || '',
-            })
-          }
+        case RPCMethod.TransferNotification:
+          this.handlers.onTransferNotification?.({
+            channelId: (params.channel_id as string) || '',
+            amount: (params.amount as string) || '0',
+            asset: (params.asset as string) || 'usdc',
+            from: (params.from as string) || '',
+            to: (params.to as string) || '',
+          })
           break
-        }
 
         case RPCMethod.Pong:
-          // Silently handled
           break
 
-        case RPCMethod.Error: {
-          const response = parseAnyRPCResponse(data)
-          this.handlers.onError?.(new Error('message' in response ? (response as { message: string }).message : 'Server error'))
+        case RPCMethod.Error:
+          this.handlers.onError?.(new Error((params.message as string) || 'Server error'))
           break
-        }
 
         default:
-          // Unknown push message — ignore
           break
       }
     } catch (error) {
@@ -311,7 +303,7 @@ export class NitroliteClient {
   // Request/Response Tracking
   // ============================================
 
-  private sendAndWait<T>(msg: string): Promise<T> {
+  private sendAndWait(msg: string): Promise<unknown> {
     return new Promise((resolve, reject) => {
       if (!this.ws || this.ws.readyState !== WS_READY_STATE.OPEN) {
         reject(new Error('Not connected'))
@@ -322,9 +314,8 @@ export class NitroliteClient {
       const requestId = getRequestId(parsed)
 
       if (requestId === undefined) {
-        // No request ID — fire and forget
         this.ws.send(msg)
-        resolve(undefined as T)
+        resolve(undefined)
         return
       }
 
@@ -336,7 +327,7 @@ export class NitroliteClient {
       }, NITROLITE_CONFIG.requestTimeout)
 
       this.pendingRequests.set(requestId, {
-        resolve: resolve as (value: unknown) => void,
+        resolve,
         reject,
         timeout,
       })
@@ -383,7 +374,6 @@ export class NitroliteClient {
     this.reconnectAttempts++
 
     setTimeout(() => {
-      // Fresh session key on reconnect
       this.connect().catch((error) => {
         console.error('Reconnection failed:', error)
       })

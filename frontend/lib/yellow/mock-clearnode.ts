@@ -161,21 +161,40 @@ export class MockClearNode implements WebSocketLike {
   private handleTransfer(parsed: unknown, requestId: number): void {
     const delay = 100 + Math.random() * 200
 
+    // Extract transfer details from the request
+    const transferParams = this.extractRequestParams(parsed)
+    const destination = (transferParams?.destination as string) || '0x0000000000000000000000000000000000000000'
+    const allocations = (transferParams?.allocations as { asset: string; amount: string }[]) || []
+    const transferAmount = allocations[0]?.amount || '0'
+    const transferAsset = allocations[0]?.asset || 'usdc'
+
     setTimeout(() => {
       this.respond(requestId, RPCMethod.Transfer, {
         success: true,
       })
 
-      // Schedule balance update 500ms later
+      // Schedule transfer notification + balance update after response
       setTimeout(() => {
         for (const [channelId, channel] of this.channels) {
           if (channel.status === 'open') {
+            // Deduct from balance
             const currentBalance = BigInt(channel.balance)
-            const newBalance = currentBalance > BigInt(1000000)
-              ? currentBalance - BigInt(1000000)
+            const amount = BigInt(transferAmount || '1000000')
+            const newBalance = currentBalance > amount
+              ? currentBalance - amount
               : currentBalance
             channel.balance = newBalance.toString()
 
+            // Push transfer notification (feeds SessionMonitor)
+            this.pushNotification(RPCMethod.TransferNotification, {
+              channel_id: channelId,
+              amount: transferAmount,
+              asset: transferAsset,
+              from: channelId,
+              to: destination,
+            })
+
+            // Push balance update
             this.pushNotification(RPCMethod.BalanceUpdate, {
               channel_id: channelId,
               balance: channel.balance,
@@ -184,7 +203,7 @@ export class MockClearNode implements WebSocketLike {
             break
           }
         }
-      }, 500)
+      }, 300)
     }, delay)
   }
 
@@ -259,17 +278,20 @@ export class MockClearNode implements WebSocketLike {
   // Utilities
   // ============================================
 
-  private extractChannelId(parsed: unknown): string | null {
+  private extractRequestParams(parsed: unknown): Record<string, unknown> | null {
     try {
-      // Nitrolite format: { req: [requestId, method, [params], timestamp], sig: [...] }
       const req = (parsed as { req?: unknown[] })?.req
       if (Array.isArray(req) && Array.isArray(req[2]) && req[2][0]) {
-        const params = req[2][0] as { channel_id?: string }
-        return params.channel_id || null
+        return req[2][0] as Record<string, unknown>
       }
     } catch {
       // Ignore parse errors
     }
     return null
+  }
+
+  private extractChannelId(parsed: unknown): string | null {
+    const params = this.extractRequestParams(parsed)
+    return (params?.channel_id as string) || null
   }
 }

@@ -7,6 +7,7 @@ import type { AgentCommand } from '@/lib/brian/types';
 
 export interface YellowOperations {
   transfer: (sessionId: string, amount: bigint, target: Address) => Promise<boolean>;
+  openSession: (agentAddress: Address, allocation: bigint) => Promise<string | null>;
   getActiveSessionId: () => string | null;
   isConnected: () => boolean;
 }
