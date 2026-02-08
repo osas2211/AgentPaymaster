@@ -28,3 +28,7 @@ export { useSettle } from './useSettle';
 export { useYellowConnection } from './useYellowConnection';
 export { useOperationStream } from './useOperationStream';
 export { useGasSavings } from './useGasSavings';
+
+// Brian Agent Hooks
+export { useAgentRunner } from './useAgentRunner';
+export { useAgentHistory } from './useAgentHistory';

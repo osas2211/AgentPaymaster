@@ -59,7 +59,7 @@ export async function getTransactionFromPrompt(
   const response = await client.transact({
     prompt,
     address,
-    ...(chainId ? { chainId: String(chainId) } : {}),
+    ...(chainId ? { chainId: `${chainId}` as `${number}` } : {}),
   });
 
   // Normalize the SDK response into our stable type
@@ -74,13 +74,13 @@ export async function getTransactionFromPrompt(
     toToken: result.data?.toToken?.symbol,
     fromAmount: result.data?.fromAmount,
     toAmount: result.data?.toAmount,
-    transactions: (result.data?.steps ?? []).map((step: Record<string, unknown>) => ({
-      to: (step.to as string) as Address,
+    transactions: (result.data?.steps ?? []).map((step) => ({
+      to: step.to as Address,
       value: String(step.value ?? '0'),
-      data: (step.data as string) ?? '0x',
+      data: step.data ?? '0x',
       chainId: step.chainId ? Number(step.chainId) : undefined,
-      from: step.from ? (step.from as string) as Address : undefined,
+      from: step.from as Address | undefined,
     })),
-    protocol: result.data?.protocol?.name,
+    protocol: result.solver,
   };
 }

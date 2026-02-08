@@ -6,6 +6,7 @@ import { ConnectWallet } from "./wallet/ConnectWallet"
 
 const links = [
   { pathname: "Dashboard", route: "/dashboard" },
+  { pathname: "Agent", route: "/agent" },
   { pathname: "setup", route: "/setup" },
   { pathname: "Sessions", route: "/sessions" },
   { pathname: "Swap", route: "/swap" },
