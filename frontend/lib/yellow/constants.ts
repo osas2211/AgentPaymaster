@@ -1,3 +1,5 @@
+import type { RPCAllowance } from '@erc7824/nitrolite'
+
 // ============================================
 // Yellow Network Constants
 // ============================================
@@ -7,6 +9,11 @@
  */
 export const YELLOW_WS_URL =
   process.env.NEXT_PUBLIC_YELLOW_WS_URL || 'wss://clearnet.yellow.com/ws'
+
+/**
+ * Whether to use the mock ClearNode for demos
+ */
+export const YELLOW_MOCK_ENABLED = process.env.NEXT_PUBLIC_YELLOW_MOCK === 'true'
 
 /**
  * Connection retry configuration
@@ -27,23 +34,14 @@ export const CONNECTION_CONFIG = {
 } as const
 
 /**
- * Message types for Yellow Network protocol
+ * Nitrolite SDK configuration
  */
-export const MESSAGE_TYPES = {
-  // Client -> Server
-  CONNECT: 'connect',
-  OPEN_SESSION: 'open_session',
-  CLOSE_SESSION: 'close_session',
-  TRANSFER: 'transfer',
-  PING: 'ping',
-
-  // Server -> Client
-  CONNECTED: 'connected',
-  SESSION_OPENED: 'session_opened',
-  SESSION_CLOSED: 'session_closed',
-  TRANSFER_CONFIRMED: 'transfer_confirmed',
-  OPERATION: 'operation',
-  SESSION_UPDATE: 'session_update',
-  ERROR: 'error',
-  PONG: 'pong',
+export const NITROLITE_CONFIG = {
+  application: 'AgentPaymaster',
+  scope: 'console',
+  sessionDurationSeconds: 86400,
+  defaultAllowances: [{ asset: 'usdc', amount: '1000000000' }] satisfies RPCAllowance[],
+  chainId: 5042002, // Arc Testnet
+  eip712DomainName: 'Yellow Network',
+  requestTimeout: 30_000,
 } as const

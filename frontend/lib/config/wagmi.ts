@@ -37,7 +37,7 @@ export const wagmiConfig = createConfig(
     // Required
     chains: [arcTestnet],
     transports: {
-      [arcTestnet.id]: http(),
+      [arcTestnet.id]: http(process.env.NEXT_PUBLIC_ARC_TESTNET_RPC || 'https://rpc.testnet.arc.network'),
     },
 
     // WalletConnect Project ID

@@ -2,9 +2,12 @@
 
 import type React from 'react';
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { useWalletClient } from 'wagmi';
 import { useWallet } from '@/lib/hooks/useWallet';
 import { useSessionStore } from '@/lib/stores/useSessionStore';
-import { YellowClient } from '@/lib/yellow/client';
+import { NitroliteClient } from '@/lib/yellow/client';
+import { MockClearNode } from '@/lib/yellow/mock-clearnode';
+import { YELLOW_WS_URL, YELLOW_MOCK_ENABLED } from '@/lib/yellow/constants';
 import type { ConnectionStatus, YellowSession } from '@/types';
 import type { Address } from 'viem';
 
@@ -44,9 +47,10 @@ interface YellowProviderProps {
 
 export function YellowProvider({ children }: YellowProviderProps) {
   const { address, isConnected: isWalletConnected } = useWallet();
+  const { data: walletClient } = useWalletClient();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [error, setError] = useState<Error | null>(null);
-  const [client, setClient] = useState<YellowClient | null>(null);
+  const [client, setClient] = useState<NitroliteClient | null>(null);
 
   const {
     sessions,
@@ -64,55 +68,78 @@ export function YellowProvider({ children }: YellowProviderProps) {
       return;
     }
 
+    if (!walletClient) {
+      setError(new Error('Wallet client not available'));
+      return;
+    }
+
     try {
       setConnectionStatus('connecting');
       setError(null);
 
       let hasErrored = false;
 
-      const yellowClient = new YellowClient({
-        onOpen: () => setConnectionStatus('connected'),
-        onClose: () => {
-          // Don't overwrite error status when close follows an error
-          if (!hasErrored) {
-            setConnectionStatus('disconnected');
-          }
+      const nitroliteClient = new NitroliteClient(
+        {
+          wsUrl: YELLOW_WS_URL,
+          address,
+          walletClient,
+          webSocketFactory: YELLOW_MOCK_ENABLED
+            ? (url) => new MockClearNode(url)
+            : undefined,
         },
-        onError: (err) => {
-          hasErrored = true;
-          setError(err);
-          setConnectionStatus('error');
-        },
-        onMessage: (message) => {
-          // Handle incoming messages from Yellow Network
-          if (message.type === 'operation') {
-            // Convert message operation to full Operation type
-            const operation = {
-              ...message.operation,
-              sessionId: message.sessionId,
-              amount: BigInt(message.operation.amount),
-              estimatedGas: BigInt(message.operation.estimatedGas),
-              actualGas: BigInt(0), // Off-chain operations have no actual gas
-            };
-            addOperation(message.sessionId, operation);
-            updateGasStats(message.gasSaved);
-          } else if (message.type === 'session_update') {
-            updateSession(message.sessionId, {
-              balance: BigInt(message.data.balance),
-              state: message.data.state,
-              nonce: message.data.nonce,
+        {
+          onOpen: () => {
+            // WS is open but not yet authenticated — stay in 'connecting'
+          },
+          onClose: () => {
+            if (!hasErrored) {
+              setConnectionStatus('disconnected');
+            }
+          },
+          onError: (err) => {
+            hasErrored = true;
+            setError(err);
+            setConnectionStatus('error');
+          },
+          onAuthenticated: () => {
+            setConnectionStatus('connected');
+          },
+          onBalanceUpdate: (data) => {
+            updateSession(data.channelId, {
+              balance: BigInt(data.balance),
             });
-          }
+          },
+          onChannelUpdate: (data) => {
+            updateSession(data.channelId, {
+              state: data.status as YellowSession['state'],
+            });
+          },
+          onTransferNotification: (data) => {
+            const operation = {
+              id: `op-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+              sessionId: data.channelId,
+              type: 'transfer' as const,
+              amount: BigInt(data.amount),
+              target: data.to,
+              status: 'confirmed' as const,
+              timestamp: Date.now(),
+              estimatedGas: BigInt(21000) * BigInt(20_000_000_000), // ~0.00042 ETH
+              actualGas: BigInt(0),
+            };
+            addOperation(data.channelId, operation);
+            updateGasStats(0.00042); // Estimated gas cost in USD
+          },
         },
-      });
+      );
 
-      await yellowClient.connect(address);
-      setClient(yellowClient);
+      await nitroliteClient.connect();
+      setClient(nitroliteClient);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to connect'));
       setConnectionStatus('error');
     }
-  }, [address, addOperation, updateGasStats, updateSession]);
+  }, [address, walletClient, addOperation, updateGasStats, updateSession]);
 
   // Disconnect from Yellow Network
   const disconnect = useCallback(() => {

@@ -1,156 +1,67 @@
-import type { Address } from 'viem';
-import type { Operation, OperationType } from '@/types';
+import type { Address } from 'viem'
+import type { WalletClient } from 'viem'
 
 // ============================================
-// Yellow Network Message Types
-// ============================================
-
-/**
- * Base message structure for Yellow Network protocol
- */
-export interface YellowMessage {
-  type: string;
-  id?: string;
-  timestamp?: number;
-}
-
-/**
- * Connect message sent to establish connection
- */
-export interface ConnectMessage extends YellowMessage {
-  type: 'connect';
-  address: Address;
-  signature?: string;
-}
-
-/**
- * Open session request message
- */
-export interface OpenSessionMessage extends YellowMessage {
-  type: 'open_session';
-  agentAddress: Address;
-  allocation: string; // Bigint as string for JSON
-}
-
-/**
- * Close session request message
- */
-export interface CloseSessionMessage extends YellowMessage {
-  type: 'close_session';
-  sessionId: string;
-}
-
-/**
- * Transfer request message
- */
-export interface TransferMessage extends YellowMessage {
-  type: 'transfer';
-  sessionId: string;
-  amount: string; // Bigint as string for JSON
-  target: Address;
-}
-
-// ============================================
-// Server Response Types
+// WebSocket Abstraction
 // ============================================
 
 /**
- * Session opened response
+ * Ready state constants matching the WebSocket spec
  */
-export interface SessionOpenedMessage extends YellowMessage {
-  type: 'session_opened';
-  sessionId: string;
-  agentAddress: Address;
-  allocation: string;
-}
+export const WS_READY_STATE = {
+  CONNECTING: 0,
+  OPEN: 1,
+  CLOSING: 2,
+  CLOSED: 3,
+} as const
 
 /**
- * Session closed response
+ * Minimal WebSocket interface that both real WebSocket
+ * and MockClearNode implement
  */
-export interface SessionClosedMessage extends YellowMessage {
-  type: 'session_closed';
-  sessionId: string;
-  spent: string;
-  refunded: string;
-}
-
-/**
- * Transfer confirmed response
- */
-export interface TransferConfirmedMessage extends YellowMessage {
-  type: 'transfer_confirmed';
-  sessionId: string;
-  operationId: string;
-  amount: string;
-  target: Address;
-}
-
-/**
- * Operation notification
- */
-export interface OperationMessage extends YellowMessage {
-  type: 'operation';
-  sessionId: string;
-  operation: {
-    id: string;
-    type: OperationType;
-    amount: string;
-    target: string;
-    status: 'pending' | 'confirmed' | 'failed';
-    timestamp: number;
-    estimatedGas: string;
-  };
-  gasSaved: number;
-}
-
-/**
- * Session state update
- */
-export interface SessionUpdateMessage extends YellowMessage {
-  type: 'session_update';
-  sessionId: string;
-  data: {
-    balance: string;
-    spent: string;
-    operationCount: number;
-    state: 'pending' | 'open' | 'closing' | 'closed';
-    nonce: number;
-  };
-}
-
-/**
- * Error response
- */
-export interface ErrorMessage extends YellowMessage {
-  type: 'error';
-  code: string;
-  message: string;
-  details?: unknown;
+export interface WebSocketLike {
+  readyState: number
+  onopen: ((ev: unknown) => void) | null
+  onclose: ((ev: unknown) => void) | null
+  onmessage: ((ev: { data: string }) => void) | null
+  onerror: ((ev: unknown) => void) | null
+  send(data: string): void
+  close(): void
 }
 
 // ============================================
-// Client Handler Types
+// Nitrolite Client Config
 // ============================================
 
 /**
- * Parsed message from Yellow Network
+ * Configuration for NitroliteClient
  */
-export type ClearNodeMessage =
-  | SessionOpenedMessage
-  | SessionClosedMessage
-  | TransferConfirmedMessage
-  | OperationMessage
-  | SessionUpdateMessage
-  | ErrorMessage
-  | { type: 'connected'; address: Address }
-  | { type: 'pong' };
+export interface NitroliteClientConfig {
+  /** ClearNode WebSocket URL */
+  wsUrl: string
+  /** User's wallet address */
+  address: Address
+  /** Viem wallet client for signing */
+  walletClient: WalletClient
+  /** Optional factory to create custom WebSocket (used for mock) */
+  webSocketFactory?: (url: string) => WebSocketLike
+}
 
 /**
- * Client event handlers
+ * Event handlers for NitroliteClient
  */
-export interface YellowClientHandlers {
-  onOpen?: () => void;
-  onClose?: () => void;
-  onError?: (error: Error) => void;
-  onMessage?: (message: ClearNodeMessage) => void;
+export interface NitroliteClientHandlers {
+  onOpen?: () => void
+  onClose?: () => void
+  onError?: (error: Error) => void
+  onAuthenticated?: () => void
+  onBalanceUpdate?: (data: { channelId: string; balance: string; asset: string }) => void
+  onChannelUpdate?: (data: { channelId: string; status: string }) => void
+  onTransferNotification?: (data: {
+    channelId: string
+    amount: string
+    asset: string
+    from: string
+    to: string
+  }) => void
 }
