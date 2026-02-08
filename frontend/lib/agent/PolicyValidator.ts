@@ -5,10 +5,20 @@ import { POLICY_VAULT_ADDRESS } from '@/lib/contracts/addresses';
 import type { ValidationResult } from '@/lib/brian/types';
 
 // ============================================
-// Policy Validator
+// Policy Validator Interface
 // ============================================
 
-export class PolicyValidator {
+export interface IPolicyValidator {
+  validateSpend(agentAddress: Address, amount: bigint): Promise<ValidationResult>;
+  isAgentAuthorized(agentAddress: Address): Promise<boolean>;
+  getRemainingLimit(agentAddress: Address): Promise<bigint>;
+}
+
+// ============================================
+// Policy Validator — On-Chain
+// ============================================
+
+export class PolicyValidator implements IPolicyValidator {
   private client: PublicClient;
 
   constructor(client?: PublicClient) {
@@ -18,9 +28,6 @@ export class PolicyValidator {
     });
   }
 
-  /**
-   * Validate whether an agent can spend a given amount
-   */
   async validateSpend(agentAddress: Address, amount: bigint): Promise<ValidationResult> {
     try {
       const [allowed, reason] = await this.client.readContract({
@@ -51,9 +58,6 @@ export class PolicyValidator {
     }
   }
 
-  /**
-   * Check if an agent is authorized in the PolicyVault
-   */
   async isAgentAuthorized(agentAddress: Address): Promise<boolean> {
     try {
       const authorized = await this.client.readContract({
@@ -68,9 +72,6 @@ export class PolicyValidator {
     }
   }
 
-  /**
-   * Get the remaining daily spending limit for an agent
-   */
   async getRemainingLimit(agentAddress: Address): Promise<bigint> {
     const remaining = await this.client.readContract({
       address: POLICY_VAULT_ADDRESS,

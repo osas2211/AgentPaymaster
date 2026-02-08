@@ -3,25 +3,31 @@ import { parseUnits } from 'viem';
 import type { AgentCommand, BrianTransactionResult } from '@/lib/brian/types';
 import { getTransactionFromPrompt } from '@/lib/brian/client';
 import { GAS_ESTIMATES } from '@/lib/brian/constants';
-import { PolicyValidator } from './PolicyValidator';
+import { PolicyValidator, type IPolicyValidator } from './PolicyValidator';
 import type { YellowOperations, AgentRunnerCallbacks } from './types';
 
 // ============================================
 // Agent Runner — Core Orchestrator
 // ============================================
 
+function isMockMode(): boolean {
+  return typeof window !== 'undefined'
+    ? process.env.NEXT_PUBLIC_BRIAN_MOCK === 'true'
+    : process.env.NEXT_PUBLIC_BRIAN_MOCK === 'true' || process.env.BRIAN_MOCK === 'true';
+}
+
 export class AgentRunner {
   private agentAddress: Address;
   private walletAddress: Address;
   private callbacks: AgentRunnerCallbacks;
-  private validator: PolicyValidator;
+  private validator: IPolicyValidator;
   private yellowOps: YellowOperations | null = null;
 
   constructor(
     agentAddress: Address,
     walletAddress: Address,
     callbacks: AgentRunnerCallbacks,
-    validator?: PolicyValidator,
+    validator?: IPolicyValidator,
   ) {
     this.agentAddress = agentAddress;
     this.walletAddress = walletAddress;
@@ -81,9 +87,13 @@ export class AgentRunner {
       command.status = 'validated';
       this.callbacks.onCommandUpdate({ ...command });
 
-      // Step 3: Execute via Yellow Network if connected
-      if (this.yellowOps?.isConnected()) {
-        const sessionId = this.yellowOps.getActiveSessionId();
+      // Step 3: Execute via Yellow Network (or mock execution)
+      const yellowConnected = this.yellowOps?.isConnected() ?? false;
+      const shouldSimulateExecution = isMockMode() && !yellowConnected;
+
+      if (yellowConnected) {
+        // Real Yellow Network execution
+        const sessionId = this.yellowOps!.getActiveSessionId();
 
         if (sessionId && amount > BigInt(0)) {
           command.status = 'executing';
@@ -91,7 +101,7 @@ export class AgentRunner {
 
           const target = brianResult.transactions[0]?.to;
           if (target) {
-            const success = await this.yellowOps.transfer(sessionId, amount, target);
+            const success = await this.yellowOps!.transfer(sessionId, amount, target);
 
             if (success) {
               command.status = 'completed';
@@ -112,27 +122,32 @@ export class AgentRunner {
               };
             }
           } else {
-            // No target address — read-only command
             command.status = 'completed';
             command.gasSaved = this.inferGasSavings(brianResult);
-            command.executionResult = {
-              success: true,
-              method: 'yellow',
-              sessionId,
-            };
+            command.executionResult = { success: true, method: 'yellow', sessionId };
           }
         } else {
-          // No session or no amount — validated but can't execute
           command.status = 'completed';
           command.gasSaved = this.inferGasSavings(brianResult);
-          command.executionResult = {
-            success: true,
-            method: 'yellow',
-          };
+          command.executionResult = { success: true, method: 'yellow' };
         }
-      }
+      } else if (shouldSimulateExecution) {
+        // Mock mode: simulate execution flow so the demo reaches "completed"
+        command.status = 'executing';
+        this.callbacks.onCommandUpdate({ ...command });
 
-      // If Yellow not connected, stay at 'validated' status
+        await new Promise((r) => setTimeout(r, 400 + Math.random() * 600));
+
+        command.status = 'completed';
+        command.gasSaved = this.inferGasSavings(brianResult);
+        command.executionResult = {
+          success: true,
+          method: 'yellow',
+          sessionId: 'mock-session-' + Date.now().toString(36),
+        };
+      }
+      // Else: Yellow not connected and not mock mode -> stay at 'validated'
+
       this.callbacks.onCommandUpdate({ ...command });
       return command;
     } catch (err) {
@@ -189,8 +204,9 @@ export class AgentRunner {
     if (desc.includes('transfer') || desc.includes('send')) return 'transfer';
     if (desc.includes('bridge')) return 'bridge';
     if (desc.includes('approve')) return 'approve';
-    if (desc.includes('deposit')) return 'deposit';
+    if (desc.includes('deposit') || desc.includes('supply')) return 'deposit';
     if (desc.includes('withdraw')) return 'withdraw';
+    if (desc.includes('stake')) return 'swap'; // staking has similar gas to swap
     return 'unknown';
   }
 

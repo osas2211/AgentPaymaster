@@ -6,12 +6,25 @@ import { useYellow } from '@/components/providers/YellowProvider';
 import { useAgentStore } from '@/lib/stores/useAgentStore';
 import { useSessionStore } from '@/lib/stores/useSessionStore';
 import { AgentRunner } from '@/lib/agent/AgentRunner';
+import { PolicyValidator } from '@/lib/agent/PolicyValidator';
+import { MockPolicyValidator } from '@/lib/agent/MockPolicyValidator';
 import { isBrianConfigured } from '@/lib/brian/client';
 import { AGENT_TIMING } from '@/lib/brian/constants';
 import type { AgentCommand } from '@/lib/brian/types';
 import type { YellowOperations } from '@/lib/agent/types';
 import type { Address } from 'viem';
 import toast from 'react-hot-toast';
+
+// ============================================
+// Constants
+// ============================================
+
+const MOCK_AGENT_ADDRESS = '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18' as Address;
+const MOCK_WALLET_ADDRESS = '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B' as Address;
+
+function isMockMode(): boolean {
+  return process.env.NEXT_PUBLIC_BRIAN_MOCK === 'true';
+}
 
 // ============================================
 // useAgentRunner Hook
@@ -26,21 +39,29 @@ export function useAgentRunner() {
   const runnerRef = useRef<AgentRunner | null>(null);
   const lastCommandTime = useRef<number>(0);
 
-  const agentAddress = store.selectedAgentAddress as Address | null;
+  const mockMode = isMockMode();
+
+  // In mock mode, use demo addresses if wallet not connected
+  const walletAddress = address ?? (mockMode ? MOCK_WALLET_ADDRESS : null);
+  const agentAddress = (store.selectedAgentAddress as Address | null)
+    ?? (mockMode ? MOCK_AGENT_ADDRESS : null);
 
   // Get first active session ID
   const activeSessionId = sessions.length > 0 ? sessions[0].channelId : null;
 
   // Recreate runner when address/agentAddress changes
   useEffect(() => {
-    if (!address || !agentAddress) {
+    if (!walletAddress || !agentAddress) {
       runnerRef.current = null;
       return;
     }
 
+    // In mock mode, use MockPolicyValidator (no RPC calls)
+    const validator = mockMode ? new MockPolicyValidator() : new PolicyValidator();
+
     const runner = new AgentRunner(
       agentAddress,
-      address,
+      walletAddress,
       {
         onCommandUpdate: (command: AgentCommand) => {
           const existing = useAgentStore.getState().getCommand(command.id);
@@ -54,10 +75,11 @@ export function useAgentRunner() {
           toast.error(error);
         },
       },
+      validator,
     );
 
     runnerRef.current = runner;
-  }, [address, agentAddress]);
+  }, [walletAddress, agentAddress, mockMode]);
 
   // Inject Yellow operations whenever connection state changes
   useEffect(() => {

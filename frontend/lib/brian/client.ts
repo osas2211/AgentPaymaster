@@ -27,10 +27,14 @@ function getBrianClient() {
 // ============================================
 
 /**
- * Check if Brian AI is configured with an API key
+ * Check if Brian AI is configured (API key present OR mock mode enabled)
  */
 export function isBrianConfigured(): boolean {
-  return !!(process.env.NEXT_PUBLIC_BRIAN_API_KEY || process.env.BRIAN_API_KEY);
+  return !!(
+    process.env.NEXT_PUBLIC_BRIAN_API_KEY ||
+    process.env.BRIAN_API_KEY ||
+    process.env.NEXT_PUBLIC_BRIAN_MOCK === 'true'
+  );
 }
 
 /**

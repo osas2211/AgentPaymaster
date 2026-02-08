@@ -18,30 +18,37 @@ export const GAS_ESTIMATES: Record<string, number> = {
 // Example Prompts
 // ============================================
 
+// Designed for a demo narrative:
+// 1. Swap 50 USDC   -> approved (remaining: 450)
+// 2. Send 25 USDC   -> approved (remaining: 425)
+// 3. Deposit 100     -> approved (remaining: 325)
+// 4. Swap 400 USDC   -> REJECTED (exceeds 325 remaining)
+// This shows the PolicyVault enforcing spending limits in real time.
+
 export const EXAMPLE_PROMPTS: BrianPrompt[] = [
   {
     label: 'Swap USDC',
     prompt: 'Swap 50 USDC for ETH on Uniswap',
     category: 'swap',
-    icon: '🔄',
+    icon: '~',
   },
   {
-    label: 'Transfer',
-    prompt: 'Transfer 100 USDC to 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
+    label: 'Send',
+    prompt: 'Send 25 USDC to vitalik.eth',
     category: 'transfer',
-    icon: '💸',
+    icon: '>',
   },
   {
-    label: 'Bridge',
-    prompt: 'Bridge 25 USDC from Ethereum to Arbitrum',
-    category: 'bridge',
-    icon: '🌉',
+    label: 'Lend',
+    prompt: 'Deposit 100 USDC into Aave V3',
+    category: 'deposit',
+    icon: '+',
   },
   {
-    label: 'Balance',
-    prompt: 'What is my USDC balance?',
-    category: 'balance',
-    icon: '💰',
+    label: 'Over Limit',
+    prompt: 'Swap 400 USDC for WBTC',
+    category: 'swap',
+    icon: '!',
   },
 ];
 
